@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Smart Bill Khata</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    .animate-fade-in { animation: fadeIn 0.3s ease-out forwards; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans pb-24 selection:bg-indigo-100">
+
+  <!-- AUTHENTICATION SCREEN -->
+  <div id="auth-screen" class="fixed inset-0 bg-slate-50 z-50 flex flex-col items-center justify-center p-4 transition-opacity duration-300">
+    <div class="bg-white p-8 rounded-3xl shadow-xl border border-slate-100 w-full max-w-sm">
+      <div class="text-center mb-8">
+        <h1 class="text-3xl font-black text-indigo-600 mb-1"><i class="fa-solid fa-store text-amber-400"></i> देवड़ा</h1>
+        <p class="text-[10px] font-bold tracking-widest text-slate-400 uppercase">Smart Ledger Access</p>
+      </div>
+      <div class="space-y-4">
+        <div>
+          <label class="text-xs font-bold text-slate-500 uppercase">Username</label>
+          <input type="text" id="auth-username" class="w-full p-3 border border-slate-200 rounded-xl mt-1 focus:ring-2 focus:ring-indigo-100 outline-none font-medium">
+        </div>
+        <div>
+          <label class="text-xs font-bold text-slate-500 uppercase">Password</label>
+          <input type="password" id="auth-password" class="w-full p-3 border border-slate-200 rounded-xl mt-1 focus:ring-2 focus:ring-indigo-100 outline-none font-medium">
+        </div>
+        <button onclick="handleLogin()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3.5 rounded-xl shadow-md transition-all mt-2">
+          Secure Login
+        </button>
+        <button onclick="handleSignup()" class="w-full bg-slate-50 hover:bg-slate-100 text-slate-500 border border-slate-200 font-bold py-3.5 rounded-xl transition-all">
+          Create Account
+        </button>
+      </div>
+      <p id="auth-error" class="text-rose-500 text-xs font-bold mt-4 text-center hidden"></p>
+    </div>
+  </div>
+  <!-- Premium Light Header -->
+  <header class="bg-gradient-to-r from-indigo-600 to-blue-600 text-white p-4 sticky top-0 z-30 shadow-md flex justify-between items-center">
+    <div>
+      <h1 class="text-xl font-black tracking-wide flex items-center">
+        <i class="fa-solid fa-store mr-2 text-amber-300"></i> देवड़ा
+      </h1>
+      <p class="text-[10px] text-indigo-100 uppercase tracking-widest mt-0.5 ml-7 font-semibold">Smart Ledger</p>
+    </div>
+    <span class="text-[10px] font-bold bg-white/20 text-white px-3 py-1.5 rounded-full backdrop-blur-sm shadow-sm border border-white/20">
+      <i class="fa-solid fa-wand-magic-sparkles mr-1"></i> AI Active
+    </span>
+  </header>
+
+  <!-- Content Container -->
+  <main class="max-w-md mx-auto p-4">
+
+    <!-- 1. DASHBOARD VIEW -->
+    <section id="view-dashboard" class="space-y-4 animate-fade-in">
+      <div class="bg-rose-50 border border-rose-100 p-5 rounded-2xl shadow-sm relative overflow-hidden mt-2">
+        <div class="absolute top-0 left-0 w-1.5 h-full bg-rose-500"></div>
+        <p class="text-[11px] font-bold text-rose-500 uppercase tracking-wider ml-2">Total Market Debt</p>
+        <h2 id="stat-total-debt" class="text-4xl font-black text-rose-700 mt-1 ml-2">₹0</h2>
+      </div>
+
+      <div class="pt-2">
+        <div class="flex justify-between items-center mb-3 border-b border-slate-200 pb-2">
+          <h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest">Monthly Overview</h3>
+          <input type="month" id="month-filter" class="text-xs border border-slate-200 rounded-lg p-1.5 bg-white text-slate-700 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 shadow-sm font-bold transition-all" onchange="fetchMonthlyStats()">
+        </div>
+        
+        <div class="grid grid-cols-2 gap-3">
+          <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
+            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Purchases (Bills)</p>
+            <h2 id="stat-month-inward" class="text-2xl font-black text-slate-800 mt-1">₹0</h2>
+          </div>
+          <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
+            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Debt Paid (Cash)</p>
+            <h2 id="stat-month-paid" class="text-2xl font-black text-emerald-600 mt-1">₹0</h2>
+          </div>
+        </div>
+      </div>
+
+      <div class="pt-2">
+        <h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 border-b pb-2">Recent Activity</h3>
+        <div id="recent-bills-list" class="space-y-3">
+          <p class="text-sm text-slate-400 italic">Scanning ledger...</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2. KHATA VIEW -->
+    <section id="view-khata" class="space-y-4 hidden animate-fade-in">
+      <div class="relative shadow-sm rounded-xl">
+        <i class="fa-solid fa-magnifying-glass absolute left-4 top-3.5 text-slate-400"></i>
+        <input type="text" id="wholesaler-search" placeholder="Search supplier..." 
+          class="w-full pl-10 pr-4 py-3 bg-white rounded-xl border border-slate-200 text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all">
+      </div>
+      <div id="wholesalers-list" class="space-y-2"></div>
+    </section>
+
+    <!-- 3. LEDGER HISTORY VIEW -->
+    <section id="view-ledger" class="space-y-4 hidden animate-fade-in">
+      <button onclick="switchTab('khata')" class="text-xs font-bold text-indigo-600 hover:text-indigo-800 mb-1 inline-flex items-center transition-colors">
+        <i class="fa-solid fa-chevron-left mr-2"></i> Back
+      </button>
+      <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 relative overflow-hidden">
+        <div class="absolute top-0 right-0 w-24 h-24 bg-indigo-50 rounded-full blur-2xl -mr-10 -mt-10"></div>
+        <h2 id="ledger-title" class="text-xl font-bold text-slate-800">Supplier</h2>
+        <p class="text-xs font-bold text-slate-400 mt-1">Pending Dues: <span id="ledger-due" class="font-black text-rose-600 text-sm ml-1">₹0</span></p>
+        
+        <!-- Action Buttons -->
+        <button onclick="openPaymentModal()" class="w-full mt-5 bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 rounded-xl text-sm transition-all shadow-md shadow-emerald-500/20">
+          <i class="fa-solid fa-wallet mr-2"></i> Log Payment
+        </button>
+        <!-- NEW MANUAL BILL BUTTON -->
+        <button onclick="openManualBillModal()" class="w-full mt-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 border border-indigo-200 font-bold py-3 rounded-xl text-sm transition-all">
+          <i class="fa-solid fa-file-circle-plus mr-2"></i> Add Manual Bill
+        </button>
+      </div>
+      <h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest mt-6 mb-3 border-b pb-2">Transaction History</h3>
+      <div id="ledger-history-list" class="space-y-2"></div>
+    </section>
+  </main>
+
+  <!-- Bottom Action Bar -->
+  <nav class="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-slate-200 py-2 px-8 flex justify-between items-center z-20 max-w-md mx-auto shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+    <button onclick="switchTab('dashboard')" class="flex flex-col items-center text-indigo-600 transition-colors" id="tab-dashboard-btn">
+      <i class="fa-solid fa-chart-line text-xl mb-1"></i>
+      <span class="text-[9px] font-bold uppercase tracking-wide">Home</span>
+    </button>
+    
+    <!-- MOBILE SAFE CAMERA BUTTON -->
+    <label for="camera-input" class="bg-indigo-600 hover:bg-indigo-700 text-white w-14 h-14 rounded-full flex items-center justify-center -mt-10 shadow-lg shadow-indigo-200 cursor-pointer transition-transform transform active:scale-95 border-4 border-white relative z-30">
+      <i class="fa-solid fa-camera text-xl"></i>
+    </label>
+    <!-- Removed 'hidden' and 'capture' so HTTP connections don't block it -->
+    <input type="file" id="camera-input" accept="image/*" class="absolute opacity-0 w-0 h-0 -z-10" onchange="handleBillCapture(event)">
+    
+    <button onclick="switchTab('khata')" class="flex flex-col items-center text-slate-400 hover:text-slate-600 transition-colors" id="tab-khata-btn">
+      <i class="fa-solid fa-address-book text-xl mb-1"></i>
+      <span class="text-[9px] font-bold uppercase tracking-wide">Khata</span>
+    </button>
+  </nav>
+
+  <!-- VERIFICATION MODAL (AI Scan) -->
+  <div id="verify-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 hidden transition-all duration-300">
+    <div class="bg-white rounded-t-2xl sm:rounded-2xl w-full max-w-md p-5 space-y-4 shadow-xl">
+      <div class="flex justify-between items-center border-b pb-2">
+        <h3 class="font-bold text-slate-800 text-lg">Verify Scanned Bill</h3>
+        <button onclick="closeModal('verify-modal')" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-xl"></i></button>
+      </div>
+      <div class="space-y-3">
+        <div>
+          <label class="text-xs font-bold text-slate-500 uppercase">Wholesaler Name</label>
+          <input type="text" id="edit-wholesaler" class="w-full p-2.5 border border-slate-200 rounded-lg font-bold text-slate-800 mt-1 outline-none">
+        </div>
+        <div>
+          <label class="text-xs font-bold text-slate-500 uppercase">Bill Date</label>
+          <input type="date" id="edit-date" class="w-full p-2.5 border border-slate-200 rounded-lg text-slate-800 mt-1 outline-none">
+        </div>
+        <div>
+          <label class="text-xs font-bold text-slate-500 uppercase">Total Amount (₹)</label>
+          <input type="number" id="edit-amount" class="w-full p-2.5 border border-slate-200 rounded-lg font-black text-rose-600 text-xl mt-1 outline-none">
+        </div>
+      </div>
+      <button onclick="saveVerifiedBill()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl transition-all shadow-md">
+        Confirm & Add to Ledger
+      </button>
+    </div>
+  </div>
+
+  <!-- MANUAL BILL MODAL -->
+  <div id="manual-bill-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 hidden transition-all duration-300">
+    <div class="bg-white rounded-t-2xl sm:rounded-2xl w-full max-w-md p-5 space-y-4 shadow-xl">
+      <div class="flex justify-between items-center border-b pb-2">
+        <h3 class="font-bold text-slate-800 text-lg">Add Bill Manually</h3>
+        <button onclick="closeModal('manual-bill-modal')" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-xl"></i></button>
+      </div>
+      <div class="space-y-3">
+        <div>
+          <label class="text-xs font-bold text-slate-500 uppercase">Bill Date</label>
+          <input type="date" id="manual-bill-date" class="w-full p-2.5 border border-slate-200 rounded-lg text-slate-800 mt-1 outline-none">
+        </div>
+        <div>
+          <label class="text-xs font-bold text-slate-500 uppercase">Total Amount (₹)</label>
+          <input type="number" id="manual-bill-amount" placeholder="e.g. 1500" class="w-full p-2.5 border border-slate-200 rounded-lg font-black text-rose-600 text-xl mt-1 outline-none">
+        </div>
+      </div>
+      <button onclick="submitManualBill()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl transition-all shadow-md">
+        Save Bill to Ledger
+      </button>
+    </div>
+  </div>
+
+  <!-- PAYMENT ENTRY MODAL -->
+  <div id="payment-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 hidden transition-all duration-300">
+    <div class="bg-white rounded-t-2xl sm:rounded-2xl w-full max-w-md p-5 space-y-4 shadow-xl">
+      <div class="flex justify-between items-center border-b pb-2">
+        <h3 class="font-bold text-slate-800 text-lg">Log Cash Payment</h3>
+        <button onclick="closeModal('payment-modal')" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-xl"></i></button>
+      </div>
+      <div class="space-y-3">
+        <div>
+          <label class="text-xs font-bold text-slate-500 uppercase">Amount Paid (₹)</label>
+          <input type="number" id="pay-amount" placeholder="e.g. 500" class="w-full p-3 border border-slate-200 rounded-lg font-black text-emerald-600 text-2xl mt-1 outline-none">
+        </div>
+        <div>
+          <label class="text-xs font-bold text-slate-500 uppercase">Payment Mode</label>
+          <select id="pay-mode" class="w-full p-2.5 border border-slate-200 rounded-lg text-slate-800 mt-1 outline-none">
+            <option value="Cash">Cash</option>
+            <option value="UPI">UPI</option>
+            <option value="Bank Transfer">Bank Transfer</option>
+          </select>
+        </div>
+      </div>
+      <button onclick="submitPayment()" class="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 rounded-xl transition-all shadow-md">
+        Save Payment
+      </button>
+    </div>
+  </div>
+
+  <!-- Loading Overlay -->
+  <div id="loading-spinner" class="fixed inset-0 bg-white/80 backdrop-blur-sm z-50 flex flex-col items-center justify-center text-slate-800 hidden">
+    <div class="relative w-16 h-16 flex items-center justify-center">
+      <div class="absolute inset-0 border-t-4 border-indigo-600 border-slate-200 border-solid rounded-full animate-spin"></div>
+      <i class="fa-solid fa-robot text-indigo-600 text-xl"></i>
+    </div>
+    <p class="mt-4 font-bold text-sm tracking-wide text-indigo-900">Processing...</p>
+  </div>
+
+  <script>
+    let activeWholesalerId = null;
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const monthInput = document.getElementById('month-filter');
+      const today = new Date();
+      const yyyy = today.getFullYear();
+      const mm = String(today.getMonth() + 1).padStart(2, '0');
+      monthInput.value = `${yyyy}-${mm}`;
+      
+      fetchDashboard();
+      fetchMonthlyStats();
+    });
+
+    function switchTab(tab) {
+      document.getElementById('view-dashboard').classList.toggle('hidden', tab !== 'dashboard');
+      document.getElementById('view-khata').classList.toggle('hidden', tab !== 'khata');
+      document.getElementById('view-ledger').classList.add('hidden');
+
+      const dashBtn = document.getElementById('tab-dashboard-btn');
+      const khataBtn = document.getElementById('tab-khata-btn');
+      dashBtn.className = `flex flex-col items-center transition-colors ${tab === 'dashboard' ? 'text-indigo-600' : 'text-slate-400'}`;
+      khataBtn.className = `flex flex-col items-center transition-colors ${tab === 'khata' ? 'text-indigo-600' : 'text-slate-400'}`;
+
+      if (tab === 'dashboard') {
+        fetchDashboard();
+        fetchMonthlyStats();
+      }
+      if (tab === 'khata') fetchWholesalers();
+    }
+
+    async function fetchDashboard() {
+      try {
+        const res = await fetch('/api/dashboard');
+        const data = await res.json();
+        
+        document.getElementById('stat-total-debt').textContent = `₹${(data.totalMarketDebt || 0).toLocaleString('en-IN')}`;
+
+        const list = document.getElementById('recent-bills-list');
+        const activities = data.recentActivity || [];
+        
+        list.innerHTML = activities.length === 0 ? '<p class="text-sm text-slate-400 italic">No recent activity.</p>' : '';
+        
+        activities.forEach(item => {
+          const isBill = item.type === 'BILL';
+          const safeAmount = item.amount || 0;
+          const safeName = item.wholesalerName || 'Supplier';
+          const safeDate = item.date ? new Date(item.date).toLocaleDateString('en-IN') : 'Recent';
+          const badgeType = item.type || 'TX';
+          
+          list.innerHTML += `
+            <div class="bg-white p-4 rounded-xl flex justify-between items-center border border-slate-100 shadow-sm">
+              <div>
+                <div class="flex items-center gap-2">
+                  <span class="text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded ${isBill ? 'bg-rose-50 text-rose-600' : 'bg-emerald-50 text-emerald-600'}">${badgeType}</span>
+                  <p class="font-bold text-sm text-slate-800">${safeName}</p>
+                </div>
+                <p class="text-xs text-slate-400 font-medium mt-1">${safeDate}</p>
+              </div>
+              <span class="font-black ${isBill ? 'text-rose-600' : 'text-emerald-500'} text-sm">
+                ${isBill ? '+' : '-'}₹${safeAmount.toLocaleString('en-IN')}
+              </span>
+            </div>`;
+        });
+      } catch (err) {
+        console.error("Dashboard error:", err);
+      }
+    }
+
+    async function fetchMonthlyStats() {
+      const monthVal = document.getElementById('month-filter').value;
+      if (!monthVal) return;
+      
+      try {
+        const res = await fetch(`/api/monthly-stats?month=${monthVal}`);
+        const data = await res.json();
+        
+        document.getElementById('stat-month-inward').textContent = `₹${data.monthlyInward.toLocaleString('en-IN')}`;
+        document.getElementById('stat-month-paid').textContent = `₹${data.monthlyPaid.toLocaleString('en-IN')}`;
+      } catch (err) {
+        console.error("Monthly stats error:", err);
+      }
+    }
+
+    async function fetchWholesalers() {
+      try {
+        const res = await fetch('/api/wholesalers');
+        const suppliers = await res.json();
+        const container = document.getElementById('wholesalers-list');
+        container.innerHTML = suppliers.length === 0 ? '<p class="text-sm text-slate-400 italic">No wholesalers registered.</p>' : '';
+        suppliers.forEach(s => {
+          container.innerHTML += `
+            <div onclick="openLedger('${s._id}')" class="bg-white p-4 rounded-xl flex justify-between items-center border border-slate-100 shadow-sm cursor-pointer active:scale-[0.98] transition-transform">
+              <span class="font-bold text-slate-800 text-base">${s.name}</span>
+              <span class="font-black text-rose-600 text-base">₹${s.currentBalanceDue.toLocaleString('en-IN')}</span>
+            </div>`;
+        });
+      } catch (err) {
+        console.error("Wholesalers error:", err);
+      }
+    }
+
+    async function openLedger(id) {
+      activeWholesalerId = id;
+      document.getElementById('view-khata').classList.add('hidden');
+      document.getElementById('view-ledger').classList.remove('hidden');
+
+      const res = await fetch(`/api/wholesalers/${id}/ledger`);
+      const { wholesaler, history } = await res.json();
+
+      document.getElementById('ledger-title').textContent = wholesaler.name;
+      document.getElementById('ledger-due').textContent = `₹${wholesaler.currentBalanceDue.toLocaleString('en-IN')}`;
+
+      const historyContainer = document.getElementById('ledger-history-list');
+      historyContainer.innerHTML = history.length === 0 ? '<p class="text-sm text-slate-400 italic">No transactions recorded.</p>' : '';
+      history.forEach(tx => {
+        const isBill = tx.type === 'BILL';
+        historyContainer.innerHTML += `
+          <div class="bg-white p-3.5 rounded-xl flex justify-between items-center border border-slate-100 shadow-sm">
+            <div>
+              <span class="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded ${isBill ? 'bg-indigo-50 text-indigo-600' : 'bg-emerald-50 text-emerald-600'}">${tx.type}</span>
+              <p class="text-xs font-medium text-slate-400 mt-1">${new Date(tx.date).toLocaleDateString('en-IN')}</p>
+            </div>
+            <span class="font-black ${isBill ? 'text-rose-600' : 'text-emerald-500'} text-sm">
+              ${isBill ? '+' : '-'}₹${tx.amount.toLocaleString('en-IN')}
+            </span>
+          </div>`;
+      });
+    }
+
+    // Manual Bill Functions
+    function openManualBillModal() {
+      document.getElementById('manual-bill-amount').value = '';
+      document.getElementById('manual-bill-date').value = new Date().toISOString().split('T')[0];
+      document.getElementById('manual-bill-modal').classList.remove('hidden');
+    }
+
+    async function submitManualBill() {
+      const amount = document.getElementById('manual-bill-amount').value;
+      const billDate = document.getElementById('manual-bill-date').value;
+      const wholesalerName = document.getElementById('ledger-title').textContent;
+
+      if (!amount) {
+        alert('Please enter a bill amount.');
+        return;
+      }
+
+      await fetch('/api/bills', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ wholesalerName, billDate, totalAmount: amount })
+      });
+
+      closeModal('manual-bill-modal');
+      openLedger(activeWholesalerId); // Refresh the ledger
+    }
+
+    async function handleBillCapture(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      document.getElementById('loading-spinner').classList.remove('hidden');
+      const formData = new FormData();
+      formData.append('billImage', file);
+
+      try {
+        const res = await fetch('/api/scan-bill', { method: 'POST', body: formData });
+        const result = await res.json();
+        
+        if (result.success) {
+          document.getElementById('edit-wholesaler').value = result.data.wholesalerName || '';
+          document.getElementById('edit-date').value = result.data.billDate || new Date().toISOString().split('T')[0];
+          document.getElementById('edit-amount').value = result.data.totalAmount || '';
+          document.getElementById('verify-modal').classList.remove('hidden');
+        } else {
+          alert(result.error || 'Could not read the bill. Please use "Add Manual Bill" instead.');
+        }
+      } catch (err) {
+        alert('Scanning failed or API rate limit reached. You can use "Add Manual Bill" in the supplier ledger.');
+      } finally {
+        document.getElementById('loading-spinner').classList.add('hidden');
+        event.target.value = '';
+      }
+    }
+
+    async function saveVerifiedBill() {
+      const payload = {
+        wholesalerName: document.getElementById('edit-wholesaler').value,
+        billDate: document.getElementById('edit-date').value,
+        totalAmount: document.getElementById('edit-amount').value
+      };
+
+      if (!payload.wholesalerName || !payload.totalAmount) {
+        alert('Wholesaler name and amount are required.');
+        return;
+      }
+
+      await fetch('/api/bills', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      closeModal('verify-modal');
+      switchTab('dashboard');
+    }
+
+    function openPaymentModal() {
+      document.getElementById('pay-amount').value = '';
+      document.getElementById('payment-modal').classList.remove('hidden');
+    }
+
+    async function submitPayment() {
+      const amount = document.getElementById('pay-amount').value;
+      const mode = document.getElementById('pay-mode').value;
+
+      if (!amount) return;
+
+      await fetch('/api/payments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ wholesalerId: activeWholesalerId, amountPaid: amount, paymentMode: mode })
+      });
+
+      closeModal('payment-modal');
+      openLedger(activeWholesalerId);
+    }
+
+    function closeModal(id) {
+      document.getElementById(id).classList.add('hidden');
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      // Check if user is logged in
+      const token = localStorage.getItem('khata_token');
+      
+      if (token) {
+        // Logged in: Hide auth screen, show app
+        document.getElementById('auth-screen').classList.add('hidden');
+        initializeApp();
+      } else {
+        // Not logged in: Hide main app components
+        document.querySelector('header').classList.add('hidden');
+        document.querySelector('main').classList.add('hidden');
+        document.querySelector('nav').classList.add('hidden');
+      }
+    });
+
+    function initializeApp() {
+      document.querySelector('header').classList.remove('hidden');
+      document.querySelector('main').classList.remove('hidden');
+      document.querySelector('nav').classList.remove('hidden');
+      
+      const monthInput = document.getElementById('month-filter');
+      const today = new Date();
+      monthInput.value = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+      
+      fetchDashboard();
+      fetchMonthlyStats();
+    }
+
+    async function handleSignup() {
+      await authenticate('/api/signup');
+    }
+
+    async function handleLogin() {
+      await authenticate('/api/login');
+    }
+
+    async function authenticate(endpoint) {
+      const username = document.getElementById('auth-username').value;
+      const password = document.getElementById('auth-password').value;
+      const errorEl = document.getElementById('auth-error');
+      
+      if (!username || !password) {
+        errorEl.textContent = 'Please enter both username and password.';
+        errorEl.classList.remove('hidden');
+        return;
+      }
+
+      try {
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password })
+        });
+        
+        const data = await res.json();
+        
+        if (data.success) {
+          // Save the secure token to the phone
+          localStorage.setItem('khata_token', data.token);
+          
+          // Hide login screen and load the app
+          document.getElementById('auth-screen').classList.add('hidden');
+          errorEl.classList.add('hidden');
+          initializeApp();
+        } else {
+          errorEl.textContent = data.error;
+          errorEl.classList.remove('hidden');
+        }
+      } catch (err) {
+        errorEl.textContent = 'Network error. Please try again.';
+        errorEl.classList.remove('hidden');
+      }
+    }
+    
+    // Add a quick logout function you can use later
+    function logout() {
+      localStorage.removeItem('khata_token');
+      location.reload();
+    }
+  </script>
+</body>
+</html>
