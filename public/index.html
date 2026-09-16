@@ -97,6 +97,9 @@
           class="w-full pl-10 pr-4 py-3 bg-white rounded-xl border border-slate-200 text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all">
       </div>
       <div id="wholesalers-list" class="space-y-2"></div>
+      <button onclick="deleteBill('${bill._id}')" class="text-rose-400 hover:text-rose-600 transition-colors p-2">
+  <i class="fa-solid fa-trash-can"></i>
+</button>
     </section>
 
     <!-- 3. LEDGER HISTORY VIEW -->
@@ -120,6 +123,7 @@
       </div>
       <h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest mt-6 mb-3 border-b pb-2">Transaction History</h3>
       <div id="ledger-history-list" class="space-y-2"></div>
+      
     </section>
   </main>
 
@@ -227,6 +231,12 @@
       <i class="fa-solid fa-robot text-indigo-600 text-xl"></i>
     </div>
     <p class="mt-4 font-bold text-sm tracking-wide text-indigo-900">Processing...</p>
+    <!-- Inside your processing screen div -->
+<div class="mt-6">
+  <button onclick="cancelScan()" class="px-6 py-2 bg-rose-100 text-rose-600 font-bold rounded-full shadow-sm hover:bg-rose-200 transition-colors">
+    <i class="fa-solid fa-xmark mr-1"></i> Stop Scan
+  </button>
+</div>
   </div>
 
   <script>
@@ -541,6 +551,85 @@
       localStorage.removeItem('khata_token');
       location.reload();
     }
+    let scanAbortController = null; // Add this near the top of your scripts
+
+// The new cancel function
+function cancelScan() {
+  if (scanAbortController) {
+    scanAbortController.abort(); // Kills the network request instantly
+  }
+  
+  // Hide your processing screen (update the ID to match yours)
+  document.getElementById('processing-screen').classList.add('hidden');
+  
+  // Clear the camera input so you can take a new photo
+  document.getElementById('camera-input').value = '';
+}
+
+// Update your existing handleBillCapture function:
+async function handleBillCapture(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  // Show your processing screen here...
+  // document.getElementById('processing-screen').classList.remove('hidden');
+
+  // 1. Create the new abort controller
+  scanAbortController = new AbortController();
+  const formData = new FormData();
+  formData.append('billImage', file);
+
+  try {
+    const token = localStorage.getItem('khata_token');
+    const res = await fetch('/api/scan', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}` },
+      body: formData,
+      signal: scanAbortController.signal // 2. Attach the kill switch to the fetch
+    });
+    
+    const data = await res.json();
+    // ... handle your successful scan data here ...
+    
+  } catch (err) {
+    if (err.name === 'AbortError') {
+      console.log('Scan successfully stopped by user.');
+    } else {
+      alert('Error scanning bill. Please try again.');
+    }
+  } finally {
+    // Reset the controller when done
+    scanAbortController = null;
+  }
+}
+async function deleteBill(billId) {
+  // Ask for confirmation so you don't accidentally delete a vendor's ledger entry!
+  if (!confirm('Are you sure you want to delete this bill? This cannot be undone.')) {
+    return;
+  }
+
+  try {
+    const token = localStorage.getItem('khata_token');
+    const res = await fetch(`/api/bills/${billId}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+
+    const data = await res.json();
+    if (data.success) {
+      // Refresh the Khata list and Dashboard so the totals update automatically
+      fetchDashboard(); 
+      // If you have a specific fetchKhata() function, call that here too!
+    } else {
+      alert(data.error || 'Failed to delete bill.');
+    }
+  } catch (err) {
+    console.error(err);
+    alert('Network error while deleting.');
+  }
+}
   </script>
 </body>
 </html>
