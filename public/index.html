@@ -97,9 +97,6 @@
           class="w-full pl-10 pr-4 py-3 bg-white rounded-xl border border-slate-200 text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all">
       </div>
       <div id="wholesalers-list" class="space-y-2"></div>
-      <button onclick="deleteBill('${bill._id}')" class="text-rose-400 hover:text-rose-600 transition-colors p-2">
-  <i class="fa-solid fa-trash-can"></i>
-</button>
     </section>
 
     <!-- 3. LEDGER HISTORY VIEW -->
@@ -233,9 +230,10 @@
     <p class="mt-4 font-bold text-sm tracking-wide text-indigo-900">Processing...</p>
     <!-- Inside your processing screen div -->
 <div class="mt-6">
-  <button onclick="cancelScan()" class="px-6 py-2 bg-rose-100 text-rose-600 font-bold rounded-full shadow-sm hover:bg-rose-200 transition-colors">
-    <i class="fa-solid fa-xmark mr-1"></i> Stop Scan
-  </button>
+  <!-- Add this right below your processing spinner text -->
+    <button onclick="cancelScan()" class="mt-6 px-6 py-2 bg-rose-100 text-rose-600 font-bold rounded-full shadow-sm hover:bg-rose-200 transition-colors">
+      <i class="fa-solid fa-xmark mr-1"></i> Stop Scan
+    </button>
 </div>
   </div>
 
@@ -341,7 +339,7 @@
       }
     }
 
-    async function openLedger(id) {
+   async function openLedger(id) {
       activeWholesalerId = id;
       document.getElementById('view-khata').classList.add('hidden');
       document.getElementById('view-ledger').classList.remove('hidden');
@@ -354,17 +352,29 @@
 
       const historyContainer = document.getElementById('ledger-history-list');
       historyContainer.innerHTML = history.length === 0 ? '<p class="text-sm text-slate-400 italic">No transactions recorded.</p>' : '';
+      
       history.forEach(tx => {
         const isBill = tx.type === 'BILL';
+        
+        // We only want the trash can to appear on BILLS, not on Payments.
+        const deleteBtnHTML = isBill 
+          ? `<button onclick="deleteBill('${tx._id}')" class="text-rose-400 hover:text-rose-600 transition-colors p-2 ml-2 bg-rose-50 rounded-lg">
+               <i class="fa-solid fa-trash-can"></i>
+             </button>` 
+          : ``;
+
         historyContainer.innerHTML += `
-          <div class="bg-white p-3.5 rounded-xl flex justify-between items-center border border-slate-100 shadow-sm">
+          <div class="bg-white p-3.5 rounded-xl flex justify-between items-center border border-slate-100 shadow-sm mb-2">
             <div>
               <span class="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded ${isBill ? 'bg-indigo-50 text-indigo-600' : 'bg-emerald-50 text-emerald-600'}">${tx.type}</span>
               <p class="text-xs font-medium text-slate-400 mt-1">${new Date(tx.date).toLocaleDateString('en-IN')}</p>
             </div>
-            <span class="font-black ${isBill ? 'text-rose-600' : 'text-emerald-500'} text-sm">
-              ${isBill ? '+' : '-'}₹${tx.amount.toLocaleString('en-IN')}
-            </span>
+            <div class="flex items-center">
+              <span class="font-black ${isBill ? 'text-rose-600' : 'text-emerald-500'} text-sm">
+                ${isBill ? '+' : '-'}₹${tx.amount.toLocaleString('en-IN')}
+              </span>
+              ${deleteBtnHTML}
+            </div>
           </div>`;
       });
     }
@@ -617,11 +627,14 @@ async function deleteBill(billId) {
       }
     });
 
-    const data = await res.json();
+   const data = await res.json();
     if (data.success) {
-      // Refresh the Khata list and Dashboard so the totals update automatically
+      // 1. Refresh the dashboard totals in the background
       fetchDashboard(); 
-      // If you have a specific fetchKhata() function, call that here too!
+      // 2. Refresh the ledger list we are currently looking at!
+      if (activeWholesalerId) {
+        openLedger(activeWholesalerId); 
+      }
     } else {
       alert(data.error || 'Failed to delete bill.');
     }
