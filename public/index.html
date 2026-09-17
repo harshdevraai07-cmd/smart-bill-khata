@@ -131,13 +131,13 @@
       <span class="text-[9px] font-bold uppercase tracking-wide">Home</span>
     </button>
     
-    <!-- MOBILE SAFE CAMERA BUTTON -->
-    <label for="camera-input" class="bg-indigo-600 hover:bg-indigo-700 text-white w-14 h-14 rounded-full flex items-center justify-center -mt-10 shadow-lg shadow-indigo-200 cursor-pointer transition-transform transform active:scale-95 border-4 border-white relative z-30">
+   <!-- MOBILE SAFE CAMERA BUTTON -->
+    <button onclick="document.getElementById('camera-input').click()" class="bg-indigo-600 hover:bg-indigo-700 text-white w-14 h-14 rounded-full flex items-center justify-center -mt-10 shadow-lg shadow-indigo-200 cursor-pointer transition-transform transform active:scale-95 border-4 border-white relative z-30">
       <i class="fa-solid fa-camera text-xl"></i>
-    </label>
-    <!-- Removed 'hidden' and 'capture' so HTTP connections don't block it -->
-<input type="file" id="camera-input" accept="image/*" capture="environment" class="absolute opacity-0 w-0 h-0 -z-10" onchange="handleBillCapture(event)">
+    </button>
     
+    <!-- The actual input is fully hidden now -->
+    <input type="file" id="camera-input" accept="image/*" capture="environment" class="hidden" onchange="handleBillCapture(event)">
     <button onclick="switchTab('khata')" class="flex flex-col items-center text-slate-400 hover:text-slate-600 transition-colors" id="tab-khata-btn">
       <i class="fa-solid fa-address-book text-xl mb-1"></i>
       <span class="text-[9px] font-bold uppercase tracking-wide">Khata</span>
