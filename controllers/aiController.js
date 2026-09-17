@@ -36,9 +36,22 @@ const scanBill = async (req, res) => {
     const parsedData = JSON.parse(result.response.text());
 
     res.json({ success: true, data: parsedData });
-  } catch (error) {
+  }  catch (error) {
     console.error('AI Extraction Error:', error);
-    res.status(500).json({ error: 'Failed to process the bill image' });
+    
+    // Check if it's a 503 Busy error from Google
+    if (error.status === 503) {
+      return res.status(503).json({ 
+        success: false, 
+        error: 'The AI server is temporarily busy. Please wait 10 seconds and try again.' 
+      });
+    }
+
+    // Default error for everything else
+    res.status(500).json({ 
+      success: false, 
+      error: 'Could not read the bill. Please try again or use Manual Entry.' 
+    });
   }
 };
 
