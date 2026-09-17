@@ -131,8 +131,6 @@
       <span class="text-[9px] font-bold uppercase tracking-wide">Home</span>
     </button>
     
-   <!-- MOBILE SAFE CAMERA BUTTON -->
-   <!-- MOBILE SAFE CAMERA BUTTON -->
    <!-- MOBILE SAFE CAMERA BUTTON (Invisible Overlay Method) -->
     <div class="relative w-14 h-14 -mt-10 z-30">
       <!-- 1. The visual button (placed underneath) -->
@@ -141,8 +139,7 @@
       </div>
       
       <!-- 2. The real file input (stretched perfectly over the top, totally transparent!) -->
-      <input type="file" id="camera-input" accept="image/*" capture="environment" class="absolute inset-0 w-full h-full opacity-0 z-50 cursor-pointer" onchange="handleBillCapture(event)">
-    </div>
+    <input type="file" id="camera-input" accept="image/*" capture="environment" class="absolute inset-0 w-full h-full opacity-0 z-50 cursor-pointer" onclick="alert('Tap recognized!')" onchange="handleBillCapture(event)">    </div>
     <button onclick="switchTab('khata')" class="flex flex-col items-center text-slate-400 hover:text-slate-600 transition-colors" id="tab-khata-btn">
       <i class="fa-solid fa-address-book text-xl mb-1"></i>
       <span class="text-[9px] font-bold uppercase tracking-wide">Khata</span>
