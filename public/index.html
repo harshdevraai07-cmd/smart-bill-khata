@@ -133,12 +133,16 @@
     
    <!-- MOBILE SAFE CAMERA BUTTON -->
    <!-- MOBILE SAFE CAMERA BUTTON -->
-    <label for="camera-input" class="bg-indigo-600 hover:bg-indigo-700 text-white w-14 h-14 rounded-full flex items-center justify-center -mt-10 shadow-lg shadow-indigo-200 cursor-pointer transition-transform transform active:scale-95 border-4 border-white relative z-30">
-      <i class="fa-solid fa-camera text-xl"></i>
-    </label>
-    
-    <!-- sr-only hides it from the screen, but keeps it "clickable" for the phone! -->
-    <input type="file" id="camera-input" accept="image/*" capture="environment" class="sr-only" onchange="handleBillCapture(event)">
+   <!-- MOBILE SAFE CAMERA BUTTON (Invisible Overlay Method) -->
+    <div class="relative w-14 h-14 -mt-10 z-30">
+      <!-- 1. The visual button (placed underneath) -->
+      <div class="absolute inset-0 bg-indigo-600 text-white rounded-full flex items-center justify-center shadow-lg shadow-indigo-200 border-4 border-white">
+        <i class="fa-solid fa-camera text-xl"></i>
+      </div>
+      
+      <!-- 2. The real file input (stretched perfectly over the top, totally transparent!) -->
+      <input type="file" id="camera-input" accept="image/*" capture="environment" class="absolute inset-0 w-full h-full opacity-0 z-50 cursor-pointer" onchange="handleBillCapture(event)">
+    </div>
     <button onclick="switchTab('khata')" class="flex flex-col items-center text-slate-400 hover:text-slate-600 transition-colors" id="tab-khata-btn">
       <i class="fa-solid fa-address-book text-xl mb-1"></i>
       <span class="text-[9px] font-bold uppercase tracking-wide">Khata</span>
