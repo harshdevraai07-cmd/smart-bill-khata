@@ -9,18 +9,19 @@ router.post('/bills', createBill);
 // DELETE a bill by ID
 router.delete('/:id', async (req, res) => {
   try {
-    // If you have authentication middleware applied to this route, great!
-    // Otherwise, this will just delete the bill matching the ID.
+    const Bill = require('../models/Bill'); // Pulling the model just to be safe
     const deletedBill = await Bill.findByIdAndDelete(req.params.id);
     
     if (!deletedBill) {
-      return res.status(404).json({ error: 'Bill not found' });
+      return res.status(404).json({ success: false, error: 'Bill not found' });
     }
     
     res.json({ success: true, message: 'Bill deleted successfully' });
   } catch (error) {
     console.error('Delete error:', error);
-    res.status(500).json({ error: 'Failed to delete bill' });
+    res.status(500).json({ success: false, error: 'Failed to delete bill' });
   }
 });
+
+// THIS MUST BE THE ABSOLUTE LAST LINE OF THE FILE
 module.exports = router;
