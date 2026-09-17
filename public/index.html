@@ -239,6 +239,7 @@
 
   <script>
     let activeWholesalerId = null;
+    let scanAbortController = null; // Moved to the top so the whole app can use it
 
     document.addEventListener('DOMContentLoaded', () => {
       const monthInput = document.getElementById('month-filter');
@@ -247,9 +248,26 @@
       const mm = String(today.getMonth() + 1).padStart(2, '0');
       monthInput.value = `${yyyy}-${mm}`;
       
+      // Check if user is logged in
+      const token = localStorage.getItem('khata_token');
+      if (token) {
+        document.getElementById('auth-screen').classList.add('hidden');
+        initializeApp();
+      } else {
+        document.querySelector('header').classList.add('hidden');
+        document.querySelector('main').classList.add('hidden');
+        document.querySelector('nav').classList.add('hidden');
+      }
+    });
+
+    function initializeApp() {
+      document.querySelector('header').classList.remove('hidden');
+      document.querySelector('main').classList.remove('hidden');
+      document.querySelector('nav').classList.remove('hidden');
+      
       fetchDashboard();
       fetchMonthlyStats();
-    });
+    }
 
     function switchTab(tab) {
       document.getElementById('view-dashboard').classList.toggle('hidden', tab !== 'dashboard');
@@ -339,7 +357,7 @@
       }
     }
 
-   async function openLedger(id) {
+    async function openLedger(id) {
       activeWholesalerId = id;
       document.getElementById('view-khata').classList.add('hidden');
       document.getElementById('view-ledger').classList.remove('hidden');
@@ -356,7 +374,6 @@
       history.forEach(tx => {
         const isBill = tx.type === 'BILL';
         
-        // We only want the trash can to appear on BILLS, not on Payments.
         const deleteBtnHTML = isBill 
           ? `<button onclick="deleteBill('${tx._id}')" class="text-rose-400 hover:text-rose-600 transition-colors p-2 ml-2 bg-rose-50 rounded-lg">
                <i class="fa-solid fa-trash-can"></i>
@@ -379,7 +396,6 @@
       });
     }
 
-    // Manual Bill Functions
     function openManualBillModal() {
       document.getElementById('manual-bill-amount').value = '';
       document.getElementById('manual-bill-date').value = new Date().toISOString().split('T')[0];
@@ -403,23 +419,29 @@
       });
 
       closeModal('manual-bill-modal');
-      openLedger(activeWholesalerId); // Refresh the ledger
+      openLedger(activeWholesalerId);
     }
 
-   async function handleBillCapture(event) {
+    // --- CORRECTED SCANNER & CANCEL FUNCTIONS ---
+    function cancelScan() {
+      if (scanAbortController) {
+        scanAbortController.abort();
+      }
+      document.getElementById('loading-spinner').classList.add('hidden');
+      document.getElementById('camera-input').value = '';
+    }
+
+    async function handleBillCapture(event) {
       const file = event.target.files[0];
       if (!file) return;
 
-      // Show the loading spinner and Cancel button
       document.getElementById('loading-spinner').classList.remove('hidden');
       
-      // Setup the kill switch
       scanAbortController = new AbortController();
       const formData = new FormData();
       formData.append('billImage', file);
 
       try {
-        // Corrected route to /api/scan-bill
         const res = await fetch('/api/scan-bill', { 
           method: 'POST', 
           body: formData,
@@ -429,7 +451,6 @@
         const result = await res.json();
         
         if (result.success) {
-          // Restore your popup logic!
           document.getElementById('edit-wholesaler').value = result.data.wholesalerName || '';
           document.getElementById('edit-date').value = result.data.billDate || new Date().toISOString().split('T')[0];
           document.getElementById('edit-amount').value = result.data.totalAmount || '';
@@ -438,14 +459,12 @@
           alert(result.error || 'Could not read the bill. Please use "Add Manual Bill" instead.');
         }
       } catch (err) {
-        // Handle the Cancel button vs a real error
         if (err.name === 'AbortError') {
           console.log('Scan successfully stopped by user.');
         } else {
-          alert('Scanning failed or API rate limit reached. You can use "Add Manual Bill" in the supplier ledger.');
+          alert('Scanning failed. You can use "Add Manual Bill" in the supplier ledger.');
         }
       } finally {
-        // Hide the spinner and reset
         document.getElementById('loading-spinner').classList.add('hidden');
         event.target.value = '';
         scanAbortController = null;
@@ -495,46 +514,41 @@
       openLedger(activeWholesalerId);
     }
 
+    async function deleteBill(billId) {
+      if (!confirm('Are you sure you want to delete this bill? This cannot be undone.')) {
+        return;
+      }
+
+      try {
+        const token = localStorage.getItem('khata_token');
+        const res = await fetch(`/api/bills/${billId}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        const data = await res.json();
+        if (data.success) {
+          fetchDashboard(); 
+          if (activeWholesalerId) {
+            openLedger(activeWholesalerId); 
+          }
+        } else {
+          alert(data.error || 'Failed to delete bill.');
+        }
+      } catch (err) {
+        console.error(err);
+        alert('Network error while deleting.');
+      }
+    }
+
     function closeModal(id) {
       document.getElementById(id).classList.add('hidden');
     }
 
-    document.addEventListener('DOMContentLoaded', () => {
-      // Check if user is logged in
-      const token = localStorage.getItem('khata_token');
-      
-      if (token) {
-        // Logged in: Hide auth screen, show app
-        document.getElementById('auth-screen').classList.add('hidden');
-        initializeApp();
-      } else {
-        // Not logged in: Hide main app components
-        document.querySelector('header').classList.add('hidden');
-        document.querySelector('main').classList.add('hidden');
-        document.querySelector('nav').classList.add('hidden');
-      }
-    });
-
-    function initializeApp() {
-      document.querySelector('header').classList.remove('hidden');
-      document.querySelector('main').classList.remove('hidden');
-      document.querySelector('nav').classList.remove('hidden');
-      
-      const monthInput = document.getElementById('month-filter');
-      const today = new Date();
-      monthInput.value = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
-      
-      fetchDashboard();
-      fetchMonthlyStats();
-    }
-
-    async function handleSignup() {
-      await authenticate('/api/signup');
-    }
-
-    async function handleLogin() {
-      await authenticate('/api/login');
-    }
+    async function handleSignup() { await authenticate('/api/signup'); }
+    async function handleLogin() { await authenticate('/api/login'); }
 
     async function authenticate(endpoint) {
       const username = document.getElementById('auth-username').value;
@@ -557,10 +571,7 @@
         const data = await res.json();
         
         if (data.success) {
-          // Save the secure token to the phone
           localStorage.setItem('khata_token', data.token);
-          
-          // Hide login screen and load the app
           document.getElementById('auth-screen').classList.add('hidden');
           errorEl.classList.add('hidden');
           initializeApp();
@@ -574,90 +585,10 @@
       }
     }
     
-    // Add a quick logout function you can use later
     function logout() {
       localStorage.removeItem('khata_token');
       location.reload();
     }
-    let scanAbortController = null; // Add this near the top of your scripts
-
-// The new cancel function
-function cancelScan() {
-      if (scanAbortController) {
-        scanAbortController.abort(); // Kills the network request instantly
-      }
-      
-      // Corrected ID to hide the spinner
-      document.getElementById('loading-spinner').classList.add('hidden');
-      document.getElementById('camera-input').value = '';
-    }
-// Update your existing handleBillCapture function:
-async function handleBillCapture(event) {
-  const file = event.target.files[0];
-  if (!file) return;
-
-  // Show your processing screen here...
-  // document.getElementById('processing-screen').classList.remove('hidden');
-
-  // 1. Create the new abort controller
-  scanAbortController = new AbortController();
-  const formData = new FormData();
-  formData.append('billImage', file);
-
-  try {
-    const token = localStorage.getItem('khata_token');
-    const res = await fetch('/api/scan', {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${token}` },
-      body: formData,
-      signal: scanAbortController.signal // 2. Attach the kill switch to the fetch
-    });
-    
-    const data = await res.json();
-    // ... handle your successful scan data here ...
-    
-  } catch (err) {
-    if (err.name === 'AbortError') {
-      console.log('Scan successfully stopped by user.');
-    } else {
-      alert('Error scanning bill. Please try again.');
-    }
-  } finally {
-    // Reset the controller when done
-    scanAbortController = null;
-  }
-}
-async function deleteBill(billId) {
-  // Ask for confirmation so you don't accidentally delete a vendor's ledger entry!
-  if (!confirm('Are you sure you want to delete this bill? This cannot be undone.')) {
-    return;
-  }
-
-  try {
-    const token = localStorage.getItem('khata_token');
-    const res = await fetch(`/api/bills/${billId}`, {
-      method: 'DELETE',
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    });
-
-   const data = await res.json();
-    if (data.success) {
-      // 1. Refresh the dashboard totals in the background
-      fetchDashboard(); 
-      // 2. Refresh the ledger list we are currently looking at!
-      if (activeWholesalerId) {
-        openLedger(activeWholesalerId); 
-      }
-    } else {
-      alert(data.error || 'Failed to delete bill.');
-    }
-  } catch (err) {
-    console.error(err);
-    alert('Network error while deleting.');
-  }
-}
   </script>
 </body>
 </html>
