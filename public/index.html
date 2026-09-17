@@ -406,19 +406,30 @@
       openLedger(activeWholesalerId); // Refresh the ledger
     }
 
-    async function handleBillCapture(event) {
+   async function handleBillCapture(event) {
       const file = event.target.files[0];
       if (!file) return;
 
+      // Show the loading spinner and Cancel button
       document.getElementById('loading-spinner').classList.remove('hidden');
+      
+      // Setup the kill switch
+      scanAbortController = new AbortController();
       const formData = new FormData();
       formData.append('billImage', file);
 
       try {
-        const res = await fetch('/api/scan-bill', { method: 'POST', body: formData });
+        // Corrected route to /api/scan-bill
+        const res = await fetch('/api/scan-bill', { 
+          method: 'POST', 
+          body: formData,
+          signal: scanAbortController.signal 
+        });
+        
         const result = await res.json();
         
         if (result.success) {
+          // Restore your popup logic!
           document.getElementById('edit-wholesaler').value = result.data.wholesalerName || '';
           document.getElementById('edit-date').value = result.data.billDate || new Date().toISOString().split('T')[0];
           document.getElementById('edit-amount').value = result.data.totalAmount || '';
@@ -427,10 +438,17 @@
           alert(result.error || 'Could not read the bill. Please use "Add Manual Bill" instead.');
         }
       } catch (err) {
-        alert('Scanning failed or API rate limit reached. You can use "Add Manual Bill" in the supplier ledger.');
+        // Handle the Cancel button vs a real error
+        if (err.name === 'AbortError') {
+          console.log('Scan successfully stopped by user.');
+        } else {
+          alert('Scanning failed or API rate limit reached. You can use "Add Manual Bill" in the supplier ledger.');
+        }
       } finally {
+        // Hide the spinner and reset
         document.getElementById('loading-spinner').classList.add('hidden');
         event.target.value = '';
+        scanAbortController = null;
       }
     }
 
@@ -565,17 +583,14 @@
 
 // The new cancel function
 function cancelScan() {
-  if (scanAbortController) {
-    scanAbortController.abort(); // Kills the network request instantly
-  }
-  
-  // Hide your processing screen (update the ID to match yours)
-  document.getElementById('processing-screen').classList.add('hidden');
-  
-  // Clear the camera input so you can take a new photo
-  document.getElementById('camera-input').value = '';
-}
-
+      if (scanAbortController) {
+        scanAbortController.abort(); // Kills the network request instantly
+      }
+      
+      // Corrected ID to hide the spinner
+      document.getElementById('loading-spinner').classList.add('hidden');
+      document.getElementById('camera-input').value = '';
+    }
 // Update your existing handleBillCapture function:
 async function handleBillCapture(event) {
   const file = event.target.files[0];
